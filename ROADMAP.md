@@ -69,9 +69,7 @@ e3e6a30 feat: effects validation (Phase 5D)
 
 | Feature | Issue |
 |---|---|
-| `compressor()` | Produces NaN in OfflineAudioContext |
-| `add()` with mixed types | Use `stack()` instead |
-| `chorus()` | Minimal audible effect in headless |
+| `chorus()` | Control stub only — no DSP in superdough. No-op. |
 | Soundfonts | No variant selection (picks first available) |
 | MIDI/OSC output | Not supported (headless only) |
 | Live input (mic, MIDI) | Not supported (headless only) |

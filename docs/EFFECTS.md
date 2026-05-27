@@ -11,8 +11,8 @@ Results are compared against a no-effect baseline to confirm audible changes.
 | `pan` | ✅ Works | Full L/R panning verified: pan(0)=L only, pan(1)=R only |
 | `delay` | ✅ Works | +15% RMS. Adds echo taps. |
 | `delaytime` | ✅ Works | Controls delay spacing. Use with `.delay()`. |
-| `delayfeedback` | ✅ Works | Controls echo repetitions. Use with `.delay()`. |
-| `room` | ✅ Works | +70% RMS (reverb). **Can clip** — reduce gain when using high room values. |
+| `delayfeedback` / `delayfb` / `dfb` | ✅ Works | Controls echo repetitions. Use with `.delay()`. |
+| `room` / `reverb` | ✅ Works | +70% RMS (reverb). **Can clip** — reduce gain when using high room values. |
 | `size` | ✅ Works | Controls reverb room size. Use with `.room()`. |
 | `dry` | ✅ Works | Controls dry/wet mix for reverb. dry(0)=100% wet, dry(1)=100% dry. |
 | `lpf` | ✅ Works | Low-pass filter. Minimal RMS change on single notes (affects harmonics). |
@@ -25,9 +25,9 @@ Results are compared against a no-effect baseline to confirm audible changes.
 | `shape` | ✅ Works | Waveshaping distortion. +331% RMS — very strong! |
 | `distort` | ✅ Works | +88% RMS. More subtle than shape. |
 | `phaser` | ✅ Works | -12% RMS. Subtle modulation. |
-| `chorus` | ⚠️ Limited | No audible RMS change in headless mode. Stereo feedback issue. |
+| `chorus` | ⚠️ Stub | Control exists but no DSP implementation in superdough. No-op. |
 | `tremolo` | ✅ Works | -57% RMS. Amplitude modulation. |
-| `compressor` | ❌ Broken | Produces NaN values in OfflineAudioContext. Do not use. |
+| `compressor` | ✅ Works | AudioParam NaN guard in polyfill. Works with/without args. |
 | `loop` | ✅ Works | +100% RMS. Creates sample loop points. |
 | `speed` | ✅ Works | Controls playback speed. speed(2)=double speed/octave up. |
 | `begin` | ✅ Works | Start point offset. -47% RMS (shorter sample). |
@@ -48,13 +48,14 @@ Results are compared against a no-effect baseline to confirm audible changes.
 | `every(n,fn)` | ✅ Works | Applies fn every nth cycle |
 | `sometimes(fn)` | ✅ Works | Randomly applies fn to events |
 | `stack(a,b)` | ✅ Works | Layers patterns simultaneously |
-| `add()` | ❌ Broken | Use `stack()` instead — add() fails with mixed s()/note() types |
+| `add(n)` | ✅ Works | **Arithmetic only** — adds n to numeric patterns. NOT for layering. |
+| `superimpose(fn)` | ✅ Works | Layers original + fn(original). For layering with transformation. |
+| `layer(fn)` | ✅ Works | Creates layers via function. |
+| `,` (comma) | ✅ Works | `a, b` = stack(a, b) — parallel layering. |
 
 ## Known Limitations
 
-1. **compressor()** — Produces NaN in OfflineAudioContext. Superdough bug.
-2. **add()** — "cannot parse as numeral" error when mixing s() and note(). Use stack().
-3. **chorus()** — No audible effect in headless rendering. Stereo feedback may not work in OfflineAudioContext.
-4. **resonance()** — Only effective when paired with cutoff().
-5. **room() clipping** — Reverb can push peak above 1.0. Use gain(0.5) before room().
-6. **jux() clipping** — Can push peak above 1.0 due to channel summing.
+1. **chorus()** — Control stub only; no DSP implementation in superdough/strudel. No-op.
+2. **resonance()** — Only effective when paired with cutoff().
+3. **room() clipping** — Reverb can push peak above 1.0. Use gain(0.5) before room().
+4. **jux() clipping** — Can push peak above 1.0 due to channel summing.
