@@ -1,4 +1,4 @@
-# Rendel Enhancement Roadmap — Samples, Effects, Tests, Completeness
+# Rendel Enhancement Roadmap
 
 **Created:** 2026-05-28  
 **Updated:** 2026-05-28  
@@ -10,23 +10,10 @@
 |---|---|---|
 | **5A: Local Samples** | ✅ Done | 218 Dirt-Sample packs, fetch monkey-patch, `strudel.json` index |
 | **5B: Soundfonts** | ✅ Done | 125 GM instruments with `gm_` prefix + 17 convenience aliases |
-| **5C: Test Suite** | ✅ Done | 106 tests (105 pass, 1 skip) across 5 test files |
-| **5D: Effects Validation** | ✅ Done | 17 effects validated with audible change tests, `docs/EFFECTS.md` |
+| **5C: Test Suite** | ✅ Done | 107 tests (all pass) across 5 test files |
+| **5D: Effects Validation** | ✅ Done | 18 effects validated with audible change tests, `docs/EFFECTS.md` |
 | **5E: Polish** | ✅ Done | `--format`, `--quality`, `-q`, `patch-package`, README |
 | **5E: Push** | ✅ Done | Pushed to `h4ksclaw/rendel` main branch |
-
-## Commits (this session)
-
-```
-4a05100 docs: comprehensive README with features, usage, and API reference
-9e534b1 feat: CLI polish --format, --quality, quiet mode, file size reporting
-cafb961 feat: control aliases (reverb, delayfb, dfb) + 17 convenience instrument aliases
-7ca83b7 fix: auto-patch @kabelsalat/web ESM exports via postinstall (Phase 5E)
-874581c feat: 125 GM soundfont instruments with short aliases (Phase 5B)
-e3e6a30 feat: effects validation (Phase 5D)
-71b1fd2 feat: comprehensive test suite (Phase 5C)
-6acff68 feat: local Dirt-Samples support (Phase 5A)
-```
 
 ## What's Included
 
@@ -40,21 +27,21 @@ e3e6a30 feat: effects validation (Phase 5D)
 - **Reverb**: room/reverb, size, dry
 - **Filters**: lpf, hpf, bpf, cutoff, resonance
 - **Distortion**: crush, shape, distort
-- **Modulation**: phaser, tremolo, chorus (limited)
-- **Dynamics**: gain, pan, compressor (broken — NaN)
+- **Modulation**: phaser, tremolo, chorus (stub — no DSP)
+- **Dynamics**: gain, pan, compressor ✅ (fixed NaN bug)
 - **Sample**: speed, begin, end, loop
 
 ### Pattern Operations
-- slow, fast, rev, struct, euclid, jux, mask, every, sometimes, stack
+- slow, fast, rev, struct, euclid, jux, mask, every, sometimes, stack, superimpose, layer
 
 ### CLI Flags
 - `-f, --file` — input .js pattern file
 - `-o, --output` — output file (.wav, .mp3, .flac, .ogg)
 - `-d, --duration` — render duration in seconds
-- `-r, --samplerate` — sample rate (22050, 44100, 48000, 88200, 96000)
+- `-r, --samplerate` — sample rate (default 44100)
 - `--cps` — cycles per second (tempo)
 - `--format` — override output format
-- `--quality` — encoding quality (MP3 VBR 0-9, OGG 1-10, FLAC 0-8)
+- `--quality` — encoding quality
 - `-p, --progress` — per-chunk timing
 - `-q` — quiet mode
 
@@ -62,15 +49,19 @@ e3e6a30 feat: effects validation (Phase 5D)
 - `test/renderer.test.js` (13 tests) — pattern eval, buffer output, chunking
 - `test/audio.test.js` (47 tests) — synths, samples, effects, pattern ops
 - `test/effects.test.js` (19 tests) — effect validation with audible changes
-- `test/soundfonts.test.js` (12 tests) — GM instruments + aliases
+- `test/soundfonts.test.js` (14 tests) — GM instruments + aliases
 - `test/regression.test.js` (14 tests) — example patterns + audio quality
+
+**Total: 107 tests, 107 passing, 0 skipped, 0 failures**
 
 ## Known Limitations
 
 | Feature | Issue |
 |---|---|
 | `chorus()` | Control stub only — no DSP in superdough. No-op. |
+| `.noise()` / `.lpenv()` | Can cause superdough node disconnect errors |
+| `.fit()` / `.chop()` | Crash in some chains (upstream superdough bug) |
 | Soundfonts | No variant selection (picks first available) |
 | MIDI/OSC output | Not supported (headless only) |
-| Live input (mic, MIDI) | Not supported (headless only) |
-| `watch` mode | Not implemented yet |
+| Comma syntax | Use `stack()` — JS comma returns only last expression |
+| No live mode | Offline rendering only |
