@@ -42,4 +42,27 @@ npx rendel -f beat.js -o beat.mp3 -d 60 -p
 npx rendel -f song.js -o song.mp3 --quality 0 -d 120
 
 # Force format regardless of extension
-npx rendre...[truncated]
+npx rendel -f song.js -o song.mp3 --quality 0 -d 120
+```
+
+## Pattern Files
+
+Pattern files are plain JavaScript that evaluate to a Strudel pattern:
+
+```js
+// Single layer
+s("bd*4").gain(0.8).room(0.2)
+
+// ⚠️ IMPORTANT: Use stack() for multi-layer, NOT commas!
+// WRONG — JavaScript comma only returns the last expression:
+//   s("bd*4").gain(0.8), s("hh*4").gain(0.3)  ← only hh plays!
+
+// CORRECT:
+stack(
+  s("bd*4").gain(0.8),
+  s("hh*4").gain(0.3),
+  note("c3").s("sawtooth").delay(0.3)
+)
+```
+
+## API
