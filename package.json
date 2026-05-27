@@ -44,6 +44,7 @@
     "node-web-audio-api": "^1.0.9"
   },
   "devDependencies": {
-    "patch-package": "^8.0.1"
+    "patch-package": "^8.0.1",
+    "vitest": "^4.1.7"
   }
 }
