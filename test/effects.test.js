@@ -143,14 +143,17 @@ describe('effects produce audible changes vs baseline', () => {
     const buf = await renderCode('s("bd").delay(0.5).delayfb(0.7).gain(0.8)', { duration: 2 });
     expect(isSilent(buf)).toBe(false);
   }, T);
-});
 
-describe('broken effects (known issues)', () => {
-  beforeAll(ensureScope);
-
-  it('compressor produces NaN/silence (known bug)', async () => {
+  // --- Compressor (was broken, now fixed with AudioParam NaN guard) ---
+  it('compressor() with no args produces audio', async () => {
     const buf = await renderCode('s("bd").compressor().gain(0.8)', { duration: 2 });
-    // Currently produces silence due to NaN in AudioParam
-    expect(isSilent(buf)).toBe(true);
+    expect(isSilent(buf)).toBe(false);
+  }, T);
+
+  it('compressor(-10, 4) compresses signal', async () => {
+    const buf = await renderCode('s("bd").compressor(-10, 4).gain(0.8)', { duration: 2 });
+    // Compressor should produce non-silent, non-clipping output
+    expect(getRMS(buf)).toBeGreaterThan(0);
+    expect(getRMS(buf)).toBeLessThan(sampleRms * 2);
   }, T);
 });

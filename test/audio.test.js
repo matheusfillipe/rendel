@@ -90,13 +90,12 @@ describe('effects', () => {
     { name: 'phaser', code: 's("bd").phaser(0.7)' },
     { name: 'chorus', code: 's("bd").chorus(0.5)' },
     { name: 'tremolo', code: 's("bd").tremolo(0.5)' },
-    { name: 'compressor', code: 's("bd").compressor()', skip: true, reason: 'produces NaN in headless mode' },
+    { name: 'compressor', code: 's("bd").compressor()' },
     { name: 'loop', code: 's("bd").loop(0.5)' },
   ];
 
-  for (const { name, code, skip } of effects) {
-    const testFn = skip ? it.skip : it;
-    testFn(`effect ${name} doesn't crash and produces audio`, async () => {
+  for (const { name, code } of effects) {
+    it(`effect ${name} doesn't crash and produces audio`, async () => {
       const buf = await renderCode(code, { duration: 2 });
       expect(buf).toBeDefined();
       // Effects may reduce volume significantly but shouldn't error

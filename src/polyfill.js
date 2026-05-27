@@ -99,3 +99,18 @@ function patchCrossContextBuffer(NodeClass) {
 
 patchCrossContextBuffer(nwaa.AudioBufferSourceNode);
 patchCrossContextBuffer(nwaa.ConvolverNode);
+
+// superdough's compressor() can pass non-numeric values (e.g. the event object)
+// to AudioParam.value, which causes NaN. Browsers silently clamp these but
+// node-web-audio-api throws. Guard the setter to clamp non-finite values to 0.
+if (nwaa.AudioParam) {
+  const desc = Object.getOwnPropertyDescriptor(nwaa.AudioParam.prototype, 'value');
+  if (desc?.set) {
+    Object.defineProperty(nwaa.AudioParam.prototype, 'value', {
+      ...desc,
+      set(v) {
+        desc.set.call(this, isFinite(v) ? v : 0);
+      },
+    });
+  }
+}
