@@ -19,3 +19,4 @@ samples/*.flac
 samples/*.ogg
 samples/*/
 !samples/strudel.json
+samples/
