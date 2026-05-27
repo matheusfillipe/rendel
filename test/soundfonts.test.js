@@ -44,6 +44,13 @@ describe('soundfonts', () => {
     expect(isSilent(buf)).toBe(false);
   }, T);
 
+  it('convenience aliases: rhodes, guitar, bass, sax', async () => {
+    for (const inst of ['rhodes', 'guitar', 'bass', 'sax', 'strings', 'brass', 'organ', 'pad']) {
+      const buf = await renderCode(`note("c4").s("${inst}").gain(0.5)`, { duration: 2 });
+      expect(isSilent(buf)).toBe(false);
+    }
+  }, T);
+
   it('soundfont with note pattern works', async () => {
     const buf = await renderCode(
       'note("c3 [eb3 g3] bb3 c4").s("piano").struct("x [x x] x x").gain(0.5)',

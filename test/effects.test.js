@@ -132,6 +132,17 @@ describe('effects produce audible changes vs baseline', () => {
     const revRms = getRMS(bufRev);
     expect(Math.abs(fwdRms - revRms) / fwdRms).toBeLessThan(0.5);
   }, T);
+
+  // --- Aliases ---
+  it('reverb() is an alias for room() and produces reverb', async () => {
+    const buf = await renderCode('s("bd").reverb(0.7).gain(0.8)', { duration: 2 });
+    expect(getRMS(buf)).toBeGreaterThan(sampleRms * 1.3);
+  }, T);
+
+  it('delayfb is an alias for delayfeedback', async () => {
+    const buf = await renderCode('s("bd").delay(0.5).delayfb(0.7).gain(0.8)', { duration: 2 });
+    expect(isSilent(buf)).toBe(false);
+  }, T);
 });
 
 describe('broken effects (known issues)', () => {

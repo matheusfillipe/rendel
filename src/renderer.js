@@ -87,6 +87,26 @@ export async function setupScope() {
   registerSynthSounds();
   registerSoundfonts();
 
+  // --- Control aliases (added to Pattern.prototype by evalScope) ---
+  // reverb() is an alias for room() — strudel.cc compat
+  if (strudelCore.Pattern?.prototype?.room) {
+    strudelCore.Pattern.prototype.reverb = strudelCore.Pattern.prototype.room;
+  }
+  // Alias control synonyms from @strudel/core/controls.mjs
+  // These are defined with @synonyms JSDoc but some need explicit registration
+  const { Pattern } = strudelCore;
+  if (Pattern?.prototype) {
+    // delayfeedback aliases
+    if (Pattern.prototype.delayfeedback) {
+      Pattern.prototype.delayfb = Pattern.prototype.delayfeedback;
+      Pattern.prototype.dfb = Pattern.prototype.delayfeedback;
+    }
+    // delaytime alias
+    if (Pattern.prototype.delaytime) {
+      Pattern.prototype.dtime = Pattern.prototype.delaytime;
+    }
+  }
+
   // Alias GM soundfonts: s("piano") -> s("gm_piano")
   soundAlias('gm_piano', 'piano');
   soundAlias('gm_epiano1', 'epiano1');
@@ -213,6 +233,24 @@ export async function setupScope() {
   soundAlias('gm_helicopter', 'helicopter');
   soundAlias('gm_applause', 'applause');
   soundAlias('gm_gunshot', 'gunshot');
+
+  // --- Additional convenience aliases ---
+  // Common instrument nicknames
+  soundAlias('gm_epiano1', 'rhodes');
+  soundAlias('gm_epiano2', 'epiano');
+  soundAlias('gm_acoustic_guitar_nylon', 'guitar');
+  soundAlias('gm_acoustic_bass', 'bass');
+  soundAlias('gm_string_ensemble_1', 'strings');
+  soundAlias('gm_brass_section', 'brass');
+  soundAlias('gm_synth_choir', 'choir');
+  soundAlias('gm_orchestral_harp', 'harp');
+  soundAlias('gm_tubular_bells', 'bell');
+  soundAlias('gm_soprano_sax', 'sax');
+  soundAlias('gm_synth_bass_1', 'synthbass');
+  soundAlias('gm_pad_new_age', 'pad');
+  soundAlias('gm_lead_1_square', 'lead');
+  soundAlias('gm_church_organ', 'organ');
+  soundAlias('gm_synth_drum', 'synthdrum');
 }
 
 /**
