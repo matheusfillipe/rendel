@@ -9,7 +9,7 @@
   "scripts": {
     "start": "node src/cli.js",
     "test": "vitest",
-    "postinstall": "patch-package"
+    "postinstall": "node scripts/patch-kabelsalat.cjs && patch-package"
   },
   "repository": {
     "type": "git",

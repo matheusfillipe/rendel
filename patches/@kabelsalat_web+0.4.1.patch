@@ -1,7 +1,0 @@
-This is a manual note, not a patch-package format.
-Fix: @kabelsalat/web needs an exports map in package.json for ESM named exports to work.
-Without it, Node.js resolves to the CJS bundle (.js) which loses named exports in ESM interop.
-
-Fix applied at runtime in renderer.js setupScope() or manually:
-  Add to node_modules/@kabelsalat/web/package.json:
-  "exports": { ".": { "import": "./dist/index.mjs", "require": "./dist/index.js" } }
