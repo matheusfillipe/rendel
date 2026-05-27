@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFile } from 'fs/promises';
+import { readFile, stat } from 'fs/promises';
 import { resolve, extname } from 'path';
 import { existsSync } from 'fs';
 import { Command } from 'commander';
@@ -10,17 +10,22 @@ const program = new Command();
 
 program
   .name('rendel')
-  .description('Render a Strudel pattern file to WAV offline')
+  .description('Render a Strudel pattern file to WAV/MP3/FLAC/OGG offline')
   .requiredOption('-f, --file <path>', 'path to .js Strudel pattern file')
   .requiredOption('-o, --output <path>', 'output file path (e.g. out.wav)')
   .option('-d, --duration <seconds>', 'render duration in seconds', parseFloat, 60)
   .option('-r, --samplerate <hz>', 'sample rate in Hz', (v) => parseInt(v, 10), 44100)
   .option('--cps <value>', 'cycles per second (tempo)', parseFloat, 1)
-  .option('-p, --progress', 'log per-chunk timing', false);
+  .option('--format <fmt>', 'override output format (wav, mp3, flac, ogg)')
+  .option('--quality <n>', 'encoding quality (MP3: 0-9 VBR, lower=better; OGG: 1-10; FLAC: compression 0-8)', (v) => parseInt(v, 10))
+  .option('-q', 'quiet mode — only errors', false)
+  .option('-p, --progress', 'show per-chunk progress', false);
 
 program.parse();
 
 const opts = program.opts();
+const quiet = opts.Q || false;
+const log = quiet ? () => {} : (...args) => console.log(...[...args].map(a => typeof a === 'string' && a.startsWith('rendel:') ? a : a));
 
 // --- Input validation ---
 
@@ -34,8 +39,22 @@ if (extname(filePath).toLowerCase() !== '.js') {
   process.exit(1);
 }
 
-const outputPath = resolve(opts.output);
-if (!inferFormat(outputPath)) {
+let outputPath = resolve(opts.output);
+const requestedFormat = opts.format;
+
+// If --format is specified, override the extension
+if (requestedFormat) {
+  if (!['wav', 'mp3', 'flac', 'ogg'].includes(requestedFormat)) {
+    console.error(`Error: --format must be wav, mp3, flac, or ogg, got: ${requestedFormat}`);
+    process.exit(1);
+  }
+  // Replace extension
+  const ext = extname(outputPath);
+  outputPath = outputPath.slice(0, outputPath.length - ext.length) + '.' + requestedFormat;
+}
+
+const actualFormat = inferFormat(outputPath);
+if (!actualFormat) {
   console.error(`Error: --output must be .wav, .mp3, .flac, or .ogg — got: ${extname(outputPath)}`);
   process.exit(1);
 }
@@ -59,16 +78,16 @@ if (isNaN(cps) || cps <= 0) {
 
 // --- Render ---
 
-console.log(`rendel: reading ${filePath}`);
+if (!quiet) console.log(`rendel: reading ${filePath}`);
 const code = await readFile(filePath, 'utf8');
 
 const t0 = Date.now();
 
 try {
-  console.log('rendel: setting up Strudel scope...');
+  if (!quiet) console.log('rendel: setting up Strudel scope...');
   await setupScope();
 
-  console.log('rendel: evaluating pattern...');
+  if (!quiet) console.log('rendel: evaluating pattern...');
   const pattern = await evaluatePattern(code);
 
   // If the pattern set cps via setcps() and the user didn't pass --cps, use it
@@ -79,15 +98,29 @@ try {
     }
   }
 
-  console.log(`rendel: rendering ${duration}s at ${sampleRate}Hz (cps=${cps})...`);
-  const buffer = await renderToBuffer(pattern, { duration, cps, sampleRate, verbose: opts.progress });
+  if (!quiet) console.log(`rendel: rendering ${duration}s at ${sampleRate}Hz (cps=${cps})...`);
+  const buffer = await renderToBuffer(pattern, {
+    duration,
+    cps,
+    sampleRate,
+    verbose: opts.progress,
+    onChunk: opts.progress ? undefined : undefined,
+  });
 
-  console.log(`rendel: writing ${outputPath}`);
-  await writeAudio(buffer, outputPath);
+  if (!quiet) console.log(`rendel: writing ${outputPath} (${actualFormat.toUpperCase()})`);
+  await writeAudio(buffer, outputPath, { quality: opts.quality });
 
   const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
-  console.log(`rendel: done in ${elapsed}s.`);
+  const fileSize = (await stat(outputPath)).size;
+  const sizeStr = fileSize > 1024 * 1024
+    ? `${(fileSize / 1024 / 1024).toFixed(1)} MB`
+    : `${(fileSize / 1024).toFixed(0)} KB`;
+
+  if (!quiet) {
+    console.log(`rendel: done in ${elapsed}s — ${outputPath} (${sizeStr}, ${duration}s, ${actualFormat.toUpperCase()})`);
+  }
 } catch (err) {
   console.error(`Error: ${err.message}`);
+  if (process.env.RENDEL_DEBUG) console.error(err.stack);
   process.exit(1);
 }

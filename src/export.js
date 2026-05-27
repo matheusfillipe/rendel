@@ -99,12 +99,14 @@ export function checkFfmpeg() {
  * @param {ArrayBuffer} wavData
  * @param {string} outputPath
  * @param {string} format - 'mp3' | 'flac' | 'ogg'
+ * @param {object} [options]
+ * @param {number} [options.quality] - format-specific quality (MP3 VBR 0-9, OGG 1-10, FLAC compression 0-8)
  */
-export function convertWithFfmpeg(wavData, outputPath, format) {
+export function convertWithFfmpeg(wavData, outputPath, format, options = {}) {
   const ffmpegArgs = [
     '-y',           // overwrite output
     '-i', 'pipe:0', // read WAV from stdin
-    ...formatArgs(format),
+    ...formatArgs(format, options.quality),
     outputPath,
   ];
 
@@ -140,12 +142,25 @@ export function convertWithFfmpeg(wavData, outputPath, format) {
   });
 }
 
-function formatArgs(format) {
+function formatArgs(format, quality) {
   switch (format) {
-    case 'mp3':  return ['-codec:a', 'libmp3lame', '-qscale:a', '2'];
-    case 'flac': return ['-codec:a', 'flac'];
-    case 'ogg':  return ['-codec:a', 'libvorbis', '-qscale:a', '5'];
-    default:     throw new Error(`Unsupported format: ${format}`);
+    case 'mp3': {
+      // VBR quality: 0 = best, 9 = worst (default: 2)
+      const q = quality != null ? Math.max(0, Math.min(9, quality)) : 2;
+      return ['-codec:a', 'libmp3lame', '-qscale:a', String(q)];
+    }
+    case 'flac': {
+      // Compression level: 0 = fastest, 8 = best (default: 5)
+      const q = quality != null ? Math.max(0, Math.min(8, quality)) : 5;
+      return ['-codec:a', 'flac', '-compression_level', String(q)];
+    }
+    case 'ogg': {
+      // Vorbis quality: -1 to 10 (default: 5)
+      const q = quality != null ? Math.max(-1, Math.min(10, quality)) : 5;
+      return ['-codec:a', 'libvorbis', '-qscale:a', String(q)];
+    }
+    default:
+      throw new Error(`Unsupported format: ${format}`);
   }
 }
 
@@ -155,8 +170,10 @@ function formatArgs(format) {
  *
  * @param {AudioBuffer} buffer
  * @param {string} outputPath
+ * @param {object} [options]
+ * @param {number} [options.quality] - encoding quality (format-specific)
  */
-export async function writeAudio(buffer, outputPath) {
+export async function writeAudio(buffer, outputPath, options = {}) {
   const format = inferFormat(outputPath);
   if (!format) {
     throw new Error(`Unsupported output format: ${extname(outputPath)}`);
@@ -180,5 +197,5 @@ export async function writeAudio(buffer, outputPath) {
     );
   }
 
-  await convertWithFfmpeg(wavData, outputPath, format);
+  await convertWithFfmpeg(wavData, outputPath, format, options);
 }
