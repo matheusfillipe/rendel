@@ -37,6 +37,33 @@ describe('evaluatePattern', () => {
     const pattern = await evaluatePattern('note("c3 e3 g3").s("sawtooth")');
     expect(pattern).toBeDefined();
   });
+
+  it('auto-wraps comma-separated patterns in stack()', async () => {
+    // JS comma operator returns only last expression — we fix this
+    const pattern = await evaluatePattern('s("bd").gain(0.8), s("hh*4").gain(0.3)');
+    expect(pattern).toBeDefined();
+    const buf = await renderToBuffer(pattern, { duration: 2 });
+    const rms = getRMS(buf);
+    // Both layers should be audible — RMS must be substantial
+    expect(rms).toBeGreaterThan(0.05);
+  });
+
+  it('auto-wraps comma after setcps', async () => {
+    const pattern = await evaluatePattern('setcps(0.5)\ns("bd*4").gain(0.8), s("hh*4").gain(0.3)');
+    expect(pattern).toBeDefined();
+    const buf = await renderToBuffer(pattern, { duration: 2 });
+    const rms = getRMS(buf);
+    expect(rms).toBeGreaterThan(0.05);
+  });
+
+  it('comma-separated sounds same as explicit stack()', async () => {
+    const commaBuf = await renderCode('s("bd*4").gain(0.8), s("hh*4").gain(0.3)', { duration: 2 });
+    const stackBuf = await renderCode('stack(s("bd*4").gain(0.8), s("hh*4").gain(0.3))', { duration: 2 });
+    const commaRMS = getRMS(commaBuf);
+    const stackRMS = getRMS(stackBuf);
+    // Should be within 10% of each other
+    expect(Math.abs(commaRMS - stackRMS) / stackRMS).toBeLessThan(0.1);
+  });
 });
 
 describe('renderToBuffer', () => {

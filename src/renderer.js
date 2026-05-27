@@ -1,5 +1,6 @@
 import './polyfill.js';
 import { fileURLToPath } from 'url';
+import { parse as acornParse } from 'acorn';
 import {
   superdough,
   setAudioContext,
@@ -256,7 +257,42 @@ export async function setupScope() {
 /**
  * Evaluate a string of Strudel pattern code and return a Pattern.
  */
+/**
+ * Fix comma-separated top-level expressions by wrapping in stack().
+ * In JavaScript, `a, b, c` is a SequenceExpression that returns only the last value.
+ * Strudel users expect commas to layer patterns like stack().
+ * This pre-processes the code to detect and fix that pattern.
+ */
+function fixCommaSyntax(code) {
+  try {
+    const ast = acornParse(code, { ecmaVersion: 2022, allowAwaitOutsideFunction: true });
+    // Case 1: Single top-level SequenceExpression (e.g. s("bd"), s("hh"))
+    if (ast.body.length === 1 &&
+        ast.body[0].type === 'ExpressionStatement' &&
+        ast.body[0].expression.type === 'SequenceExpression') {
+      const exprs = ast.body[0].expression.expressions;
+      const parts = exprs.map(e => code.slice(e.start, e.end));
+      return `stack(${parts.join(', ')})`;
+    }
+    // Case 2: Multiple statements where the LAST is a SequenceExpression
+    // e.g. setcps(0.5)\ns("bd"), s("hh")
+    const lastStmt = ast.body[ast.body.length - 1];
+    if (ast.body.length > 1 &&
+        lastStmt.type === 'ExpressionStatement' &&
+        lastStmt.expression.type === 'SequenceExpression') {
+      const exprs = lastStmt.expression.expressions;
+      const parts = exprs.map(e => code.slice(e.start, e.end));
+      const before = code.slice(0, lastStmt.start);
+      return `${before}stack(${parts.join(', ')})`;
+    }
+  } catch {
+    // If parsing fails, return original code — let the eval handle the error
+  }
+  return code;
+}
+
 export async function evaluatePattern(code) {
+  code = fixCommaSyntax(code);
   const { pattern } = await evaluate(code, transpiler);
   if (!pattern || typeof pattern.queryArc !== 'function') {
     throw new Error('Code did not return a Strudel Pattern. Make sure your file exports a pattern expression.');

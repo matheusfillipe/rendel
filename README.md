@@ -13,7 +13,8 @@ Fork of [wyote4094/rendel](https://github.com/wyote4094/rendel) with enhancement
 - 🔊 **20+ effects** — gain, pan, delay, room/reverb, lpf, hpf, crush, distort, phaser, tremolo, etc.
 - 📤 **Multi-format export** — WAV, MP3, FLAC, OGG (via ffmpeg for non-WAV)
 - ⚡ **Chunked rendering** — 3s chunks with dynamic tails for reverb/delay
-- 🧪 **106 tests** — unit, integration, regression, effects validation
+- ✨ **Auto comma→stack()** — comma-separated patterns auto-wrapped (no more stack-only requirement!)
+- 🧪 **110 tests** — unit, integration, regression, effects validation
 
 ## Install
 
@@ -40,9 +41,6 @@ npx rendel -f beat.js -o beat.mp3 -d 60 -p
 
 # High quality MP3
 npx rendel -f song.js -o song.mp3 --quality 0 -d 120
-
-# Force format regardless of extension
-npx rendel -f song.js -o song.mp3 --quality 0 -d 120
 ```
 
 ## Pattern Files
@@ -53,11 +51,10 @@ Pattern files are plain JavaScript that evaluate to a Strudel pattern:
 // Single layer
 s("bd*4").gain(0.8).room(0.2)
 
-// ⚠️ IMPORTANT: Use stack() for multi-layer, NOT commas!
-// WRONG — JavaScript comma only returns the last expression:
-//   s("bd*4").gain(0.8), s("hh*4").gain(0.3)  ← only hh plays!
+// Multi-layer: commas work! (auto-wrapped in stack)
+s("bd*4").gain(0.8), s("hh*4").gain(0.3), note("c3").s("sawtooth")
 
-// CORRECT:
+// Or use explicit stack() — both produce identical output
 stack(
   s("bd*4").gain(0.8),
   s("hh*4").gain(0.3),
