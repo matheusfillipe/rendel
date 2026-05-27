@@ -10,3 +10,12 @@ Thumbs.db
 SKILL.md
 examples/various.js
 .gitignore
+samples/audio/
+# Dirt-Samples are cloned separately (175MB)
+samples/*.wav
+samples/*.WAV
+samples/*.mp3
+samples/*.flac
+samples/*.ogg
+samples/*/
+!samples/strudel.json

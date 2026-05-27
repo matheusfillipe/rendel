@@ -8,6 +8,7 @@ import {
   registerSynthSounds,
   errorLogger,
 } from 'superdough';
+import { setupLocalSamples } from './samples.js';
 // superdough's main export comes from dist/index.mjs (a bundle that has its own copy
 // of audioContext.mjs). superdoughoutput.mjs and helpers.mjs import from the UNBUNDLED
 // audioContext.mjs directly — a separate module instance with its own `audioContext`
@@ -66,6 +67,9 @@ function invalidateAllRefs() {
 
 /** Set up Strudel's global scope (note, s, slow, fast, etc.) and register built-in synths. */
 export async function setupScope() {
+  // Register local Dirt-Samples (patch fetch + register packs with superdough)
+  const sampleCount = await setupLocalSamples();
+
   // Expose setcps as a scope function — wraps core's setCpsFunc
   const { setCpsFunc } = strudelCore;
   const extras = {
