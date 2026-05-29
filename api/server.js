@@ -3,9 +3,10 @@ import { rm } from 'node:fs/promises';
 import express from 'express';
 import { ApiError } from './errors.js';
 import { getExample, searchExamples } from './examples.js';
-import { FORMATS, MIME, renderToFile } from './render.js';
+import { FORMATS, isTruthy, MIME, renderToFile } from './render.js';
 import { shareUrl } from './share.js';
 import { getSounds } from './sounds.js';
+import { isStorageConfigured, uploadRender } from './storage.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -20,7 +21,7 @@ app.get('/', (_req, res) =>
     description: 'Stateless Strudel pattern renderer, example library, and share-link service',
     endpoints: {
       'POST /render':
-        'render pattern code to audio (?format=wav|mp3|flac|ogg, ?duration, ?samplerate, ?quality, ?exact=true to skip loop auto-fit)',
+        'render pattern code to audio (?format=wav|mp3|flac|ogg, ?duration, ?samplerate, ?quality, ?exact=true to skip loop auto-fit, ?upload=true to store and return a JSON {url})',
       'GET /examples': 'list / fuzzy-search real Strudel example tunes (?q, ?page, ?limit)',
       'GET /examples/:id': 'full code + metadata for one example',
       'GET /sounds': 'catalog of playable sounds — samples, soundfonts, synths',
@@ -48,13 +49,26 @@ app.post('/render', async (req, res, next) => {
   let cleanup;
   try {
     const code = readCode(req);
-    const { dir, outFile, format } = await renderToFile(code, optionsFrom(req), controller.signal);
+    const opts = optionsFrom(req);
+    const { dir, outFile, format } = await renderToFile(code, opts, controller.signal);
     cleanup = () => rm(dir, { recursive: true, force: true }).catch(() => {});
     res.on('close', cleanup);
     if (controller.signal.aborted) {
       cleanup();
       return;
     }
+
+    // agent/MCP callers want a link, not binary bytes
+    if (isTruthy(opts.upload)) {
+      if (!isStorageConfigured()) {
+        throw new ApiError(503, 'object storage not configured (set the MinIO env)');
+      }
+      const { url, bytes } = await uploadRender(outFile, format);
+      cleanup();
+      res.json({ url, format, bytes });
+      return;
+    }
+
     res.setHeader('Content-Type', MIME[format]);
     res.setHeader('Content-Disposition', `inline; filename="render.${format}"`);
     const stream = createReadStream(outFile);
@@ -126,6 +140,7 @@ function optionsFrom(req) {
     sampleRate: pick('samplerate') ?? pick('sampleRate'),
     quality: pick('quality'),
     exact: pick('exact'),
+    upload: pick('upload'),
   };
 }
 

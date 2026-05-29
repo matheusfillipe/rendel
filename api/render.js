@@ -74,7 +74,7 @@ function buildArgs(opts) {
   return { format, duration, rest };
 }
 
-function isTruthy(v) {
+export function isTruthy(v) {
   if (typeof v === 'boolean') return v;
   if (v == null) return false;
   const s = String(v).toLowerCase();

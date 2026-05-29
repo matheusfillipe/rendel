@@ -25,6 +25,12 @@ Render pattern code to audio. Body is either `text/plain` (the raw code) or JSON
 | `samplerate` | `44100` | 22050 / 44100 / 48000 / 88200 / 96000 |
 | `quality` | — | MP3 VBR 0–9, OGG 1–10, FLAC 0–8 |
 | `exact` | `false` | `true` renders the literal `duration`; default auto-fits to the pattern's loop |
+| `upload` | `false` | `true` stores the render and returns JSON `{ url, format, bytes }` (a public URL) instead of the audio bytes — use this when you want a link, not a download |
+
+With `upload=true` the response is `application/json` — e.g.
+`{"url":"https://s3-api.t3ks.com/rendel/renders/<id>.mp3","format":"mp3","bytes":197080}` —
+and the URL is publicly readable (no auth). Returns `503` if object storage
+isn't configured on the server. Without it, the response is the raw audio:
 
 Returns the audio bytes with the matching `Content-Type`. Strudel patterns loop
 forever, so by default rendel **auto-fits**: it detects the pattern's loop length
