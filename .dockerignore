@@ -1,0 +1,16 @@
+node_modules
+samples
+rendered
+.git
+.github
+.husky
+.serena
+.claude
+test
+docs
+skills
+*.md
+biome.json
+vitest.config.js
+.nvmrc
+.gitignore
