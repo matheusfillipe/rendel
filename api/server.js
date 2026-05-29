@@ -1,12 +1,14 @@
 import { createReadStream } from 'node:fs';
 import { rm } from 'node:fs/promises';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import express from 'express';
+import { renderToUrl } from './core.js';
 import { ApiError } from './errors.js';
 import { getExample, searchExamples } from './examples.js';
+import { createMcpServer } from './mcp/server.js';
 import { FORMATS, isTruthy, MIME, renderToFile } from './render.js';
 import { shareUrl } from './share.js';
 import { getSounds } from './sounds.js';
-import { isStorageConfigured, uploadRender } from './storage.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -26,6 +28,8 @@ app.get('/', (_req, res) =>
       'GET /examples/:id': 'full code + metadata for one example',
       'GET /sounds': 'catalog of playable sounds — samples, soundfonts, synths',
       'POST /share': 'build a strudel.cc share URL for pattern code',
+      'POST /mcp':
+        'Model Context Protocol (Streamable HTTP) — render/examples/sounds tools, compose_strudel prompt, resources',
     },
     formats: FORMATS,
   }),
@@ -50,6 +54,15 @@ app.post('/render', async (req, res, next) => {
   try {
     const code = readCode(req);
     const opts = optionsFrom(req);
+
+    // agent/MCP callers want a link, not binary bytes
+    if (isTruthy(opts.upload)) {
+      const { url, format, bytes } = await renderToUrl(code, opts, controller.signal);
+      if (controller.signal.aborted) return;
+      res.json({ url, format, bytes });
+      return;
+    }
+
     const { dir, outFile, format } = await renderToFile(code, opts, controller.signal);
     cleanup = () => rm(dir, { recursive: true, force: true }).catch(() => {});
     res.on('close', cleanup);
@@ -57,18 +70,6 @@ app.post('/render', async (req, res, next) => {
       cleanup();
       return;
     }
-
-    // agent/MCP callers want a link, not binary bytes
-    if (isTruthy(opts.upload)) {
-      if (!isStorageConfigured()) {
-        throw new ApiError(503, 'object storage not configured (set the MinIO env)');
-      }
-      const { url, bytes } = await uploadRender(outFile, format);
-      cleanup();
-      res.json({ url, format, bytes });
-      return;
-    }
-
     res.setHeader('Content-Type', MIME[format]);
     res.setHeader('Content-Disposition', `inline; filename="render.${format}"`);
     const stream = createReadStream(outFile);
@@ -116,6 +117,38 @@ app.post('/share', (req, res, next) => {
     next(err);
   }
 });
+
+// MCP endpoint (Streamable HTTP, stateless): a fresh server+transport per
+// request, sharing the same core as the REST routes. Kong key-auth fronts it
+// like every other route. express.json already parsed the body, so it's passed
+// through rather than re-read from the stream.
+app.post('/mcp', async (req, res) => {
+  const server = createMcpServer();
+  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+  res.on('close', () => {
+    transport.close();
+    server.close();
+  });
+  try {
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.body);
+  } catch (err) {
+    if (!res.headersSent) {
+      res
+        .status(500)
+        .json({ jsonrpc: '2.0', error: { code: -32603, message: err.message }, id: null });
+    }
+  }
+});
+
+const mcpStateless = (_req, res) =>
+  res.status(405).json({
+    jsonrpc: '2.0',
+    error: { code: -32000, message: 'method not allowed (stateless MCP)' },
+    id: null,
+  });
+app.get('/mcp', mcpStateless);
+app.delete('/mcp', mcpStateless);
 
 app.use((err, _req, res, _next) => {
   const status = err.status || 500;
