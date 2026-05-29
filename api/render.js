@@ -66,7 +66,19 @@ function buildArgs(opts) {
     }
     rest.push('--quality', String(quality));
   }
+  // Auto-fit one-pass rendering is on by default; ?exact=true renders the
+  // literal requested duration (looping short patterns to fill it).
+  if (isTruthy(opts.exact)) {
+    rest.push('--exact');
+  }
   return { format, duration, rest };
+}
+
+function isTruthy(v) {
+  if (typeof v === 'boolean') return v;
+  if (v == null) return false;
+  const s = String(v).toLowerCase();
+  return s === 'true' || s === '1' || s === 'yes' || s === '';
 }
 
 function runCli(args, signal) {

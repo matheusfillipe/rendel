@@ -24,10 +24,16 @@ Render pattern code to audio. Body is either `text/plain` (the raw code) or JSON
 | `duration` | `30` | seconds; clamped to a server maximum (default 180) |
 | `samplerate` | `44100` | 22050 / 44100 / 48000 / 88200 / 96000 |
 | `quality` | — | MP3 VBR 0–9, OGG 1–10, FLAC 0–8 |
+| `exact` | `false` | `true` renders the literal `duration`; default auto-fits to the pattern's loop |
 
-Returns the audio bytes with the matching `Content-Type`. Rendering is bounded by
-`duration` (the engine renders exactly that many seconds and stops) and a
-wall-clock timeout; a busy server may return `429`.
+Returns the audio bytes with the matching `Content-Type`. Strudel patterns loop
+forever, so by default rendel **auto-fits**: it detects the pattern's loop length
+and renders exactly one pass, ending on the pattern's own resolution instead of
+restarting a finished piece mid-file — so the output may be shorter than
+`duration`. Short loops meant to repeat, and patterns with no detectable loop
+(true randomness), fall back to the literal `duration`. Pass `exact=true` to
+always render the requested `duration`. Rendering is also bounded by a wall-clock
+timeout; a busy server may return `429`.
 
 ```bash
 curl -sX POST "$RENDEL_API_BASE/render?format=mp3&duration=8" \

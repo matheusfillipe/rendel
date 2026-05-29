@@ -4,7 +4,13 @@ import { readFile, stat } from 'node:fs/promises';
 import { extname, resolve } from 'node:path';
 import { Command } from 'commander';
 import { inferFormat, writeAudio } from './export.js';
-import { evaluatePattern, getPatternCps, renderToBuffer, setupScope } from './renderer.js';
+import {
+  detectLoopPeriod,
+  evaluatePattern,
+  getPatternCps,
+  renderToBuffer,
+  setupScope,
+} from './renderer.js';
 
 const program = new Command();
 
@@ -23,7 +29,12 @@ program
     (v) => parseInt(v, 10),
   )
   .option('-q, --quiet', 'quiet mode — only errors', false)
-  .option('-p, --progress', 'show per-chunk progress', false);
+  .option('-p, --progress', 'show per-chunk progress', false)
+  .option(
+    '--exact',
+    'render the literal --duration instead of auto-fitting to the pattern loop',
+    false,
+  );
 
 program.parse();
 
@@ -103,12 +114,41 @@ try {
     }
   }
 
-  if (!quiet) console.log(`rendel: rendering ${duration}s at ${sampleRate}Hz (cps=${cps})...`);
+  // Auto-fit: Strudel patterns loop forever, so rendering a fixed wall-clock
+  // duration restarts a finished song mid-file. Detect the loop length and, when
+  // the piece is roughly the requested length (i.e. a deliberate composition,
+  // not a short groove meant to repeat), render exactly one pass ending on its
+  // own resolution. Short loops and undetectable (random) patterns fall through
+  // to the literal duration.
+  let renderDuration = duration;
+  let loopCycles = null;
+  let trimSilence = false;
+  if (!opts.exact) {
+    const maxCycles = Math.min(Math.max(8, Math.ceil(duration * cps * 2.5) + 4), 256);
+    const period = detectLoopPeriod(pattern, { cps, maxCycles });
+    if (period != null) {
+      const songSeconds = period / cps;
+      if (songSeconds >= duration * 0.5 && songSeconds <= duration * 1.5) {
+        renderDuration = songSeconds + 8; // tail budget for the final decay; trimmed after
+        loopCycles = period;
+        trimSilence = true;
+      }
+    }
+  }
+
+  if (!quiet) {
+    const fit = loopCycles != null ? ` (auto-fit to ${loopCycles}-cycle loop)` : '';
+    console.log(
+      `rendel: rendering ${renderDuration.toFixed(1)}s at ${sampleRate}Hz (cps=${cps})${fit}...`,
+    );
+  }
   const buffer = await renderToBuffer(pattern, {
-    duration,
+    duration: renderDuration,
     cps,
     sampleRate,
     verbose: opts.progress,
+    loopCycles,
+    trimSilence,
   });
 
   if (!quiet) console.log(`rendel: writing ${outputPath} (${actualFormat.toUpperCase()})`);
@@ -123,7 +163,7 @@ try {
 
   if (!quiet) {
     console.log(
-      `rendel: done in ${elapsed}s — ${outputPath} (${sizeStr}, ${duration}s, ${actualFormat.toUpperCase()})`,
+      `rendel: done in ${elapsed}s — ${outputPath} (${sizeStr}, ${buffer.duration.toFixed(1)}s, ${actualFormat.toUpperCase()})`,
     );
   }
 } catch (err) {

@@ -20,7 +20,7 @@ app.get('/', (_req, res) =>
     description: 'Stateless Strudel pattern renderer, example library, and share-link service',
     endpoints: {
       'POST /render':
-        'render pattern code to audio (?format=wav|mp3|flac|ogg, ?duration, ?samplerate, ?quality)',
+        'render pattern code to audio (?format=wav|mp3|flac|ogg, ?duration, ?samplerate, ?quality, ?exact=true to skip loop auto-fit)',
       'GET /examples': 'list / fuzzy-search real Strudel example tunes (?q, ?page, ?limit)',
       'GET /examples/:id': 'full code + metadata for one example',
       'GET /sounds': 'catalog of playable sounds — samples, soundfonts, synths',
@@ -125,6 +125,7 @@ function optionsFrom(req) {
     duration: pick('duration'),
     sampleRate: pick('samplerate') ?? pick('sampleRate'),
     quality: pick('quality'),
+    exact: pick('exact'),
   };
 }
 

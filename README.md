@@ -72,8 +72,16 @@ stack(
 | `--cps <n>` | Cycles per second / tempo (default 1, or the pattern's `setcps()`) |
 | `--format <fmt>` | Override output format |
 | `--quality <n>` | Encoder quality — MP3 VBR 0–9, OGG 1–10, FLAC compression 0–8 |
+| `--exact` | Render the literal `--duration` instead of auto-fitting to the pattern loop (default: off) |
 | `-p, --progress` | Print per-chunk render timing |
 | `-q, --quiet` | Only print errors |
+
+By default rendel **auto-fits**: since Strudel patterns loop forever, it detects
+the pattern's loop length and renders exactly one pass (ending on the pattern's
+own resolution) instead of restarting a finished piece mid-file — so the output
+may be shorter than `--duration`. Short repeating loops and patterns with no
+detectable loop fall back to the literal duration. Use `--exact` to always render
+the requested `--duration`.
 
 MP3/FLAC/OGG export requires `ffmpeg` on `PATH`; WAV is written directly.
 

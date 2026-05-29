@@ -174,6 +174,87 @@ export function getPatternCps() {
   return strudelCore.getCps?.() ?? null;
 }
 
+/** Stable, order-independent signature of a hap's control value, with numbers
+ * rounded so float noise doesn't break cross-cycle comparison. */
+function valueSignature(value) {
+  if (value == null || typeof value !== 'object') {
+    return typeof value === 'number' ? value.toFixed(6) : String(value);
+  }
+  return Object.keys(value)
+    .sort()
+    .map((k) => `${k}=${valueSignature(value[k])}`)
+    .join(',');
+}
+
+/**
+ * Find the loop period of a pattern in whole cycles: the smallest P such that
+ * the events repeat every P cycles. Strudel patterns are infinite loops, so a
+ * structured piece built with arrange(...) repeats every `sum(cycles)` — that
+ * sum is what this returns, letting a caller render exactly one pass instead of
+ * capturing a fixed wall-clock slice that restarts mid-file.
+ *
+ * Returns null when no period is detectable within `maxCycles` — true
+ * randomness (rand/irand/unseeded shuffle) or a period longer than the window
+ * — so the caller falls back to the requested duration.
+ *
+ * @param {object} pattern - a Strudel Pattern (must expose queryArc)
+ * @param {object} [opts]
+ * @param {number} [opts.cps] - cycles per second, passed to the query context
+ * @param {number} [opts.maxCycles] - how many cycles to inspect (≥2 periods needed)
+ * @returns {number|null} period in whole cycles, or null
+ */
+export function detectLoopPeriod(pattern, { cps = 1, maxCycles = 64 } = {}) {
+  const max = Math.max(2, Math.floor(maxCycles));
+
+  // Query one cycle at a time. A wide single query aborts wholesale if any span
+  // errors (e.g. a broken layer in one section), but the renderer schedules in
+  // small windows, so detection must too: a broken cycle just blanks itself.
+  // Because such breakage recurs at the same position every loop, the period is
+  // still detectable.
+  const cycleSig = new Array(max);
+  let anySound = false;
+  for (let c = 0; c < max; c++) {
+    let haps;
+    try {
+      haps = pattern.queryArc(c, c + 1, { _cps: cps }).filter((h) => h.hasOnset());
+    } catch {
+      cycleSig[c] = null; // unrenderable cycle — a consistent state across loops
+      continue;
+    }
+    const sigs = [];
+    for (const hap of haps) {
+      try {
+        hap.ensureObjectValue();
+      } catch {
+        continue; // skip a single unrenderable hap
+      }
+      const offset = (hap.whole.begin.valueOf() - c).toFixed(6);
+      sigs.push(`${offset}|${hap.duration.valueOf().toFixed(6)}|${valueSignature(hap.value)}`);
+    }
+    sigs.sort();
+    if (sigs.length > 0) anySound = true;
+    cycleSig[c] = sigs;
+  }
+  if (!anySound) return null;
+
+  const cycleEqual = (a, b) => {
+    if (a === null || b === null) return a === b;
+    return a.length === b.length && a.every((s, i) => s === b[i]);
+  };
+
+  for (let period = 1; period <= Math.floor(max / 2); period++) {
+    let matches = true;
+    for (let c = period; c < max; c++) {
+      if (!cycleEqual(cycleSig[c], cycleSig[c - period])) {
+        matches = false;
+        break;
+      }
+    }
+    if (matches) return period;
+  }
+  return null;
+}
+
 async function renderChunk({ haps, beginCyc, cps, renderDur, sampleRate, workletsPath }) {
   const frameCount = Math.ceil(renderDur * sampleRate);
   const ctx = new OfflineAudioContext(2, frameCount, sampleRate);
@@ -222,7 +303,14 @@ async function renderChunk({ haps, beginCyc, cps, renderDur, sampleRate, worklet
  */
 export async function renderToBuffer(
   pattern,
-  { duration = 60, cps = 1, sampleRate = 44100, verbose = false } = {},
+  {
+    duration = 60,
+    cps = 1,
+    sampleRate = 44100,
+    verbose = false,
+    loopCycles = null,
+    trimSilence = false,
+  } = {},
 ) {
   const workletsPath = fileURLToPath(new URL('./superdough-worklets.js', import.meta.url));
 
@@ -240,10 +328,13 @@ export async function renderToBuffer(
     const beginCyc = tSec * cps;
     const endCyc = (tSec + thisChunkDur) * cps;
 
-    // Query haps with onset in this chunk window.
+    // Query haps with onset in this chunk window. When loopCycles is set, drop
+    // onsets at or past the loop boundary so the next pass never bleeds into the
+    // tail — notes that started earlier still ring out from their own chunk.
     const haps = pattern
       .queryArc(beginCyc, endCyc, { _cps: cps })
       .filter((h) => h.hasOnset())
+      .filter((h) => loopCycles == null || h.whole.begin.valueOf() < loopCycles)
       .sort((a, b) => a.whole.begin.valueOf() - b.whole.begin.valueOf());
 
     // Compute the tail needed to let the longest hap fully play out.
@@ -292,15 +383,34 @@ export async function renderToBuffer(
     }
   }
 
+  // When trimSilence is set (auto-fit one-pass renders), cut the trailing
+  // silence after the final decay so the file ends on the music, not on the
+  // tail budget we reserved for it.
+  let outLen = totalFrames;
+  if (trimSilence) {
+    const threshold = 1e-4; // ~-80 dBFS — below audibility
+    let lastSound = -1;
+    for (let i = totalFrames - 1; i >= 0; i--) {
+      if (Math.abs(outL[i]) > threshold || Math.abs(outR[i]) > threshold) {
+        lastSound = i;
+        break;
+      }
+    }
+    const pad = Math.round(0.05 * sampleRate);
+    const minLen = Math.min(totalFrames, Math.round(0.5 * sampleRate));
+    outLen = lastSound < 0 ? minLen : Math.min(totalFrames, Math.max(minLen, lastSound + pad));
+  }
+
   // Return an AudioBuffer-compatible plain object — export.js only uses
   // numberOfChannels, sampleRate, and getChannelData().
   return {
     numberOfChannels: 2,
     sampleRate,
-    length: totalFrames,
-    duration,
+    length: outLen,
+    duration: outLen / sampleRate,
     getChannelData(ch) {
-      return ch === 0 ? outL : outR;
+      const data = ch === 0 ? outL : outR;
+      return outLen === totalFrames ? data : data.subarray(0, outLen);
     },
   };
 }
