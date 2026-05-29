@@ -1,17 +1,24 @@
-import { writeFile } from 'fs/promises';
-import { extname } from 'path';
-import { spawn } from 'child_process';
+import { spawn } from 'node:child_process';
+import { writeFile } from 'node:fs/promises';
+import { extname } from 'node:path';
+
+const FFMPEG_INSTALL_HELP =
+  'ffmpeg not found. Install it to export MP3/FLAC/OGG:\n' +
+  '  Windows: https://ffmpeg.org/download.html (add to PATH)\n' +
+  '  macOS:   brew install ffmpeg\n' +
+  '  Linux:   apt install ffmpeg';
 
 /**
  * Encode an AudioBuffer as a 16-bit PCM WAV ArrayBuffer.
  */
-export function audioBufferToWav(buffer) {
+function audioBufferToWav(buffer) {
   const numChannels = buffer.numberOfChannels;
   const sampleRate = buffer.sampleRate;
 
-  const result = numChannels === 2
-    ? interleave(buffer.getChannelData(0), buffer.getChannelData(1))
-    : buffer.getChannelData(0);
+  const result =
+    numChannels === 2
+      ? interleave(buffer.getChannelData(0), buffer.getChannelData(1))
+      : buffer.getChannelData(0);
 
   return encodeWav(result, sampleRate, numChannels);
 }
@@ -47,7 +54,8 @@ function encodeWav(samples, sampleRate, numChannels) {
 
 function interleave(L, R) {
   const result = new Float32Array(L.length + R.length);
-  let i = 0, j = 0;
+  let i = 0,
+    j = 0;
   while (i < L.length) {
     result[j++] = L[i];
     result[j++] = R[i];
@@ -63,14 +71,6 @@ function writeString(view, offset, str) {
 }
 
 /**
- * Write an AudioBuffer to a WAV file on disk.
- */
-export async function writeWav(buffer, outputPath) {
-  const wavData = audioBufferToWav(buffer);
-  await writeFile(outputPath, Buffer.from(wavData));
-}
-
-/**
  * Determine output format from file extension.
  * Returns 'wav' | 'mp3' | 'flac' | 'ogg'
  */
@@ -78,18 +78,6 @@ export function inferFormat(outputPath) {
   const ext = extname(outputPath).toLowerCase().slice(1);
   const supported = ['wav', 'mp3', 'flac', 'ogg'];
   return supported.includes(ext) ? ext : null;
-}
-
-/**
- * Check if ffmpeg is available on PATH.
- * Returns true if found, false otherwise.
- */
-export function checkFfmpeg() {
-  return new Promise((resolve) => {
-    const proc = spawn('ffmpeg', ['-version'], { stdio: 'ignore' });
-    proc.on('error', () => resolve(false));
-    proc.on('close', (code) => resolve(code === 0));
-  });
 }
 
 /**
@@ -104,8 +92,9 @@ export function checkFfmpeg() {
  */
 export function convertWithFfmpeg(wavData, outputPath, format, options = {}) {
   const ffmpegArgs = [
-    '-y',           // overwrite output
-    '-i', 'pipe:0', // read WAV from stdin
+    '-y', // overwrite output
+    '-i',
+    'pipe:0', // read WAV from stdin
     ...formatArgs(format, options.quality),
     outputPath,
   ];
@@ -114,19 +103,12 @@ export function convertWithFfmpeg(wavData, outputPath, format, options = {}) {
     const proc = spawn('ffmpeg', ffmpegArgs, { stdio: ['pipe', 'ignore', 'pipe'] });
 
     let stderr = '';
-    proc.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+    proc.stderr.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
 
     proc.on('error', (err) => {
-      if (err.code === 'ENOENT') {
-        reject(new Error(
-          'ffmpeg not found. Install it to export MP3/FLAC/OGG:\n' +
-          '  Windows: https://ffmpeg.org/download.html (add to PATH)\n' +
-          '  macOS:   brew install ffmpeg\n' +
-          '  Linux:   apt install ffmpeg'
-        ));
-      } else {
-        reject(err);
-      }
+      reject(err.code === 'ENOENT' ? new Error(FFMPEG_INSTALL_HELP) : err);
     });
 
     proc.on('close', (code) => {
@@ -186,16 +168,6 @@ export async function writeAudio(buffer, outputPath, options = {}) {
     return;
   }
 
-  // Non-WAV: requires ffmpeg
-  const hasFfmpeg = await checkFfmpeg();
-  if (!hasFfmpeg) {
-    throw new Error(
-      'ffmpeg not found. Install it to export MP3/FLAC/OGG:\n' +
-      '  Windows: https://ffmpeg.org/download.html (add to PATH)\n' +
-      '  macOS:   brew install ffmpeg\n' +
-      '  Linux:   apt install ffmpeg'
-    );
-  }
-
+  // Non-WAV requires ffmpeg; convertWithFfmpeg surfaces an install hint if it's missing.
   await convertWithFfmpeg(wavData, outputPath, format, options);
 }

@@ -2,9 +2,9 @@
  * Regression tests — all example patterns render without errors and produce audio.
  * These guard against regressions when modifying the renderer, effects, or sample loading.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { getPeak, getRMS, isSilent } from './helpers/audio.js';
 import { ensureScope, renderCode } from './helpers/fixtures.js';
-import { getRMS, getPeak, isSilent } from './helpers/audio.js';
 
 const RENDER_TIMEOUT = 60_000;
 
@@ -65,54 +65,66 @@ describe('example patterns (regression)', () => {
   ];
 
   for (const { name, code } of examples) {
-    it(`${name} renders without error and produces audio`, async () => {
-      const buf = await renderCode(code, { duration: 4 });
-      expect(buf).toBeDefined();
-      expect(isSilent(buf)).toBe(false);
-      expect(getPeak(buf)).toBeLessThan(1.5); // some overshoot from effects is OK
-    }, RENDER_TIMEOUT);
+    it(
+      `${name} renders without error and produces audio`,
+      async () => {
+        const buf = await renderCode(code, { duration: 4 });
+        expect(buf).toBeDefined();
+        expect(isSilent(buf)).toBe(false);
+        expect(getPeak(buf)).toBeLessThan(1.5); // some overshoot from effects is OK
+      },
+      RENDER_TIMEOUT,
+    );
   }
 });
 
 describe('audio quality checks', () => {
   beforeAll(ensureScope);
 
-  it('sine at known frequency has expected fundamental', async () => {
-    const buf = await renderCode('note("a4").s("sine").gain(0.5)', { duration: 1 });
-    expect(isSilent(buf)).toBe(false);
-    // A4 = 440Hz. Verify via zero-crossing rate on the raw channel data.
-    const L = buf.getChannelData(0);
-    let crossings = 0;
-    for (let i = 1; i < L.length; i++) {
-      if ((L[i - 1] >= 0 && L[i] < 0) || (L[i - 1] < 0 && L[i] >= 0)) crossings++;
-    }
-    const detectedFreq = crossings / 2; // half crossings = freq over 1 second
-    expect(detectedFreq).toBeGreaterThan(400);
-    expect(detectedFreq).toBeLessThan(500);
-  }, RENDER_TIMEOUT);
+  it(
+    'sine at known frequency has expected fundamental',
+    async () => {
+      const buf = await renderCode('note("a4").s("sine").gain(0.5)', { duration: 1 });
+      expect(isSilent(buf)).toBe(false);
+      // A4 = 440Hz. Verify via zero-crossing rate on the raw channel data.
+      const L = buf.getChannelData(0);
+      let crossings = 0;
+      for (let i = 1; i < L.length; i++) {
+        if ((L[i - 1] >= 0 && L[i] < 0) || (L[i - 1] < 0 && L[i] >= 0)) crossings++;
+      }
+      const detectedFreq = crossings / 2; // half crossings = freq over 1 second
+      expect(detectedFreq).toBeGreaterThan(400);
+      expect(detectedFreq).toBeLessThan(500);
+    },
+    RENDER_TIMEOUT,
+  );
 
-  it('low-pass filter reduces high frequency energy', async () => {
-    const bufUnfiltered = await renderCode(
-      'note("c4").s("sawtooth").gain(0.5)',
-      { duration: 1 }
-    );
-    const bufFiltered = await renderCode(
-      'note("c4").s("sawtooth").lpf(500).gain(0.5)',
-      { duration: 1 }
-    );
+  it(
+    'low-pass filter reduces high frequency energy',
+    async () => {
+      const bufUnfiltered = await renderCode('note("c4").s("sawtooth").gain(0.5)', { duration: 1 });
+      const bufFiltered = await renderCode('note("c4").s("sawtooth").lpf(500).gain(0.5)', {
+        duration: 1,
+      });
 
-    const { bandEnergy } = await import('./helpers/audio.js');
-    const highEnergyUnfiltered = bandEnergy(bufUnfiltered, 2000, 8000, 0, 0.5);
-    const highEnergyFiltered = bandEnergy(bufFiltered, 2000, 8000, 0, 0.5);
+      const { bandEnergy } = await import('./helpers/audio.js');
+      const highEnergyUnfiltered = bandEnergy(bufUnfiltered, 2000, 8000, 0, 0.5);
+      const highEnergyFiltered = bandEnergy(bufFiltered, 2000, 8000, 0, 0.5);
 
-    // Filtered should have significantly less high-frequency energy
-    expect(highEnergyFiltered).toBeLessThan(highEnergyUnfiltered * 0.5);
-  }, RENDER_TIMEOUT);
+      // Filtered should have significantly less high-frequency energy
+      expect(highEnergyFiltered).toBeLessThan(highEnergyUnfiltered * 0.5);
+    },
+    RENDER_TIMEOUT,
+  );
 
-  it('gain(0.5) reduces amplitude by ~6dB', async () => {
-    const bufFull = await renderCode('note("c3").s("sine")', { duration: 1 });
-    const bufHalf = await renderCode('note("c3").s("sine").gain(0.5)', { duration: 1 });
-    // gain(0.5) should reduce RMS by roughly half
-    expect(getRMS(bufHalf)).toBeLessThan(getRMS(bufFull));
-  }, RENDER_TIMEOUT);
+  it(
+    'gain(0.5) reduces amplitude by ~6dB',
+    async () => {
+      const bufFull = await renderCode('note("c3").s("sine")', { duration: 1 });
+      const bufHalf = await renderCode('note("c3").s("sine").gain(0.5)', { duration: 1 });
+      // gain(0.5) should reduce RMS by roughly half
+      expect(getRMS(bufHalf)).toBeLessThan(getRMS(bufFull));
+    },
+    RENDER_TIMEOUT,
+  );
 });

@@ -3,8 +3,8 @@
  * Post-install patch for @kabelsalat/web ESM exports.
  * Without this, Node.js can't resolve named exports from the package.
  */
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const pkgPath = path.join(__dirname, '..', 'node_modules', '@kabelsalat', 'web', 'package.json');
 
@@ -20,7 +20,7 @@ try {
       require: './dist/index.js',
     },
   };
-  fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
+  fs.writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
   console.log('[rendel-patch] Added exports map to @kabelsalat/web');
 } catch (err) {
   if (err.code === 'ENOENT') {

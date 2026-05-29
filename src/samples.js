@@ -11,25 +11,23 @@
  *   import { setupLocalSamples } from './samples.js';
  *   await setupLocalSamples();  // call once before rendering
  */
-import { readFile } from 'fs/promises';
-import { readFileSync } from 'fs';
-import { resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
+
+import { readFileSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { registerSampleSource } from 'superdough';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SAMPLES_DIR = resolve(__dirname, '../samples');
 const SAMPLES_MAP_PATH = resolve(SAMPLES_DIR, 'strudel.json');
 
-/** Number of sample packs loaded by the last setupLocalSamples() call. */
-export let loadedPackCount = 0;
-
 /**
  * Monkey-patch `globalThis.fetch` so that relative URLs are resolved against
  * the local `samples/` directory.  Absolute http(s) URLs pass through
  * unchanged.
  */
-export function patchFetchForLocalSamples() {
+function patchFetchForLocalSamples() {
   const origFetch = globalThis.fetch;
 
   globalThis.fetch = async (input, init) => {
@@ -67,18 +65,14 @@ export function patchFetchForLocalSamples() {
  * Read `samples/strudel.json` and register every sample pack with superdough.
  * Call once at startup (idempotent — re-registration is safe).
  */
-export function registerLocalSamples() {
+function registerLocalSamples() {
   const map = JSON.parse(readFileSync(SAMPLES_MAP_PATH, 'utf8'));
   const baseUrl = map._base || `file://${SAMPLES_DIR}/`;
 
-  let count = 0;
   for (const [name, files] of Object.entries(map)) {
     if (name === '_base') continue;
     registerSampleSource(name, files, { baseUrl });
-    count++;
   }
-  loadedPackCount = count;
-  return count;
 }
 
 /**
@@ -87,6 +81,5 @@ export function registerLocalSamples() {
  */
 export async function setupLocalSamples() {
   patchFetchForLocalSamples();
-  const count = registerLocalSamples();
-  return count;
+  registerLocalSamples();
 }

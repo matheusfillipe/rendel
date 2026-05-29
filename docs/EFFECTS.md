@@ -1,61 +1,40 @@
 # Rendel Effects Reference
 
-## Effect Validation Status
+Effects and pattern operations that work with the offline renderer. Anything
+not listed may still work if superdough supports it — these are the ones with
+test coverage. Caveats are noted where behaviour is surprising.
 
-Every effect has been tested with both unit tests and manual rendering.
-Results are compared against a no-effect baseline to confirm audible changes.
+## Effects
 
-| Effect | Status | Notes |
-|--------|--------|-------|
-| `gain` | ✅ Works | -62.5% RMS change. Clean volume control. |
-| `pan` | ✅ Works | Full L/R panning verified: pan(0)=L only, pan(1)=R only |
-| `delay` | ✅ Works | +15% RMS. Adds echo taps. |
-| `delaytime` | ✅ Works | Controls delay spacing. Use with `.delay()`. |
-| `delayfeedback` / `delayfb` / `dfb` | ✅ Works | Controls echo repetitions. Use with `.delay()`. |
-| `room` / `reverb` | ✅ Works | +70% RMS (reverb). **Can clip** — reduce gain when using high room values. |
-| `size` | ✅ Works | Controls reverb room size. Use with `.room()`. |
-| `dry` | ✅ Works | Controls dry/wet mix for reverb. dry(0)=100% wet, dry(1)=100% dry. |
-| `lpf` | ✅ Works | Low-pass filter. Minimal RMS change on single notes (affects harmonics). |
-| `hpf` | ✅ Works | High-pass filter. -75% RMS — removes low frequencies strongly. |
-| `bpf` | ✅ Works | Band-pass filter. -65% RMS — isolates mid frequencies. |
-| `cutoff` | ✅ Works | Synth filter cutoff. Combine with `resonance()` for sweep effect. |
-| `resonance` | ⚠️ Works* | No audible change alone. Must pair with `cutoff()` for effect. |
-| `cutoff+resonance` | ✅ Works | +84% RMS when combined. Classic synth filter sweep. |
-| `crush` | ✅ Works | Bit-crushing. +32% RMS from quantization noise. |
-| `shape` | ✅ Works | Waveshaping distortion. +331% RMS — very strong! |
-| `distort` | ✅ Works | +88% RMS. More subtle than shape. |
-| `phaser` | ✅ Works | -12% RMS. Subtle modulation. |
-| `chorus` | ⚠️ Stub | Control exists but no DSP implementation in superdough. No-op. |
-| `tremolo` | ✅ Works | -57% RMS. Amplitude modulation. |
-| `compressor` | ✅ Works | AudioParam NaN guard in polyfill. Works with/without args. |
-| `loop` | ✅ Works | +100% RMS. Creates sample loop points. |
-| `speed` | ✅ Works | Controls playback speed. speed(2)=double speed/octave up. |
-| `begin` | ✅ Works | Start point offset. -47% RMS (shorter sample). |
-| `end` | ✅ Works | End point cutoff. |
-| `rev` | ✅ Works | Reverses pattern order (not sample audio). Use on multi-hit patterns. |
+| Effect | Notes |
+|--------|-------|
+| `gain` | Volume. |
+| `pan` | `pan(0)` = left only, `pan(1)` = right only. |
+| `delay` | Echo. Pair with `delaytime` and `delayfeedback`. |
+| `delaytime` | Delay spacing. |
+| `delayfeedback` / `delayfb` / `dfb` | Echo repetitions. |
+| `room` / `reverb` | Reverb. Can clip — lower `gain()` first. |
+| `size` | Reverb room size. Use with `room()`. |
+| `dry` | Dry/wet mix. `dry(0)` = fully wet, `dry(1)` = fully dry. |
+| `lpf` / `hpf` / `bpf` | Low / high / band-pass filters. |
+| `cutoff` | Synth filter cutoff. Combine with `resonance` for a sweep. |
+| `resonance` | Only audible when paired with `cutoff`. |
+| `crush` | Bit-crushing. |
+| `shape` | Waveshaping distortion (aggressive). |
+| `distort` | Distortion (subtler than `shape`). |
+| `phaser` | Subtle modulation. |
+| `chorus` | Stub only — no DSP in superdough, so it's a no-op. |
+| `tremolo` | Amplitude modulation. |
+| `compressor` | Works with or without args. |
+| `speed` | Playback speed. `speed(2)` = octave up. |
+| `begin` / `end` | Sample start/end points. |
+| `loop` | Sample loop points. |
 
 ## Pattern Operations
 
-| Operation | Status | Notes |
-|-----------|--------|-------|
-| `slow(n)` | ✅ Works | Stretches pattern by factor n |
-| `fast(n)` | Works | Compresses pattern by factor n |
-| `rev()` | ✅ Works | Reverses pattern event order |
-| `struct()` | ✅ Works | Applies rhythmic structure |
-| `euclid(k,n)` | ✅ Works | Euclidean rhythm: k beats in n steps |
-| `jux(fn)` | ✅ Works | Applies fn to one stereo channel only. **Can clip.** |
-| `mask()` | ✅ Works | Gates pattern with boolean pattern |
-| `every(n,fn)` | ✅ Works | Applies fn every nth cycle |
-| `sometimes(fn)` | ✅ Works | Randomly applies fn to events |
-| `stack(a,b)` | ✅ Works | Layers patterns simultaneously |
-| `add(n)` | ✅ Works | **Arithmetic only** — adds n to numeric patterns. NOT for layering. |
-| `superimpose(fn)` | ✅ Works | Layers original + fn(original). For layering with transformation. |
-| `layer(fn)` | ✅ Works | Creates layers via function. |
-| `,` (comma) | ✅ Works | `a, b` = stack(a, b) — parallel layering. |
+`slow`, `fast`, `rev`, `struct`, `euclid`, `jux`, `mask`, `every`, `sometimes`,
+`stack`, `superimpose`, `layer`.
 
-## Known Limitations
-
-1. **chorus()** — Control stub only; no DSP implementation in superdough/strudel. No-op.
-2. **resonance()** — Only effective when paired with cutoff().
-3. **room() clipping** — Reverb can push peak above 1.0. Use gain(0.5) before room().
-4. **jux() clipping** — Can push peak above 1.0 due to channel summing.
+- `,` (comma) is auto-wrapped in `stack()` — `a, b` layers `a` and `b`.
+- `add(n)` is arithmetic (adds `n` to numeric patterns), **not** layering.
+- `jux()` can push peaks past 1.0 due to channel summing.

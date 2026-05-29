@@ -9,7 +9,13 @@
   "scripts": {
     "start": "node src/cli.js",
     "test": "vitest",
+    "lint": "biome ci .",
+    "format": "biome check --write .",
+    "prepare": "husky",
     "postinstall": "node scripts/patch-kabelsalat.cjs && patch-package"
+  },
+  "lint-staged": {
+    "*.{js,mjs,cjs,json}": "biome check --write --no-errors-on-unmatched --files-ignore-unknown=true"
   },
   "repository": {
     "type": "git",
@@ -44,6 +50,9 @@
     "node-web-audio-api": "^1.0.9"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.16",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.0",
     "patch-package": "^8.0.1",
     "vitest": "^4.1.7"
   }

@@ -1,9 +1,9 @@
 /**
  * Unit tests for the renderer — pattern evaluation, buffer output, chunking.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
-import { ensureScope, renderCode, evaluatePattern, renderToBuffer } from './helpers/fixtures.js';
-import { getRMS, getPeak, isSilent } from './helpers/audio.js';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { getRMS, isSilent } from './helpers/audio.js';
+import { ensureScope, evaluatePattern, renderCode, renderToBuffer } from './helpers/fixtures.js';
 
 describe('evaluatePattern', () => {
   beforeAll(ensureScope);
@@ -58,7 +58,9 @@ describe('evaluatePattern', () => {
 
   it('comma-separated sounds same as explicit stack()', async () => {
     const commaBuf = await renderCode('s("bd*4").gain(0.8), s("hh*4").gain(0.3)', { duration: 2 });
-    const stackBuf = await renderCode('stack(s("bd*4").gain(0.8), s("hh*4").gain(0.3))', { duration: 2 });
+    const stackBuf = await renderCode('stack(s("bd*4").gain(0.8), s("hh*4").gain(0.3))', {
+      duration: 2,
+    });
     const commaRMS = getRMS(commaBuf);
     const stackRMS = getRMS(stackBuf);
     // Should be within 10% of each other

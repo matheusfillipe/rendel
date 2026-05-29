@@ -1,1 +1,0 @@
-note("c3 e3 g3 b3").s("sine").slow(2)

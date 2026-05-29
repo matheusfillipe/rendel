@@ -47,7 +47,9 @@ for (const name of WEB_AUDIO_GLOBALS) {
 if (typeof window === 'undefined') {
   const makeBrowserStub = () => {
     const stub = new Proxy(
-      function noop() { return stub; },
+      function noop() {
+        return stub;
+      },
       {
         get(target, key) {
           if (key === Symbol.toPrimitive) return () => 0;
@@ -55,9 +57,15 @@ if (typeof window === 'undefined') {
           if (key in target) return target[key];
           return stub;
         },
-        set() { return true; },
-        apply() { return stub; },
-        construct() { return stub; },
+        set() {
+          return true;
+        },
+        apply() {
+          return stub;
+        },
+        construct() {
+          return stub;
+        },
       },
     );
     return stub;
@@ -109,7 +117,7 @@ if (nwaa.AudioParam) {
     Object.defineProperty(nwaa.AudioParam.prototype, 'value', {
       ...desc,
       set(v) {
-        desc.set.call(this, isFinite(v) ? v : 0);
+        desc.set.call(this, Number.isFinite(v) ? v : 0);
       },
     });
   }

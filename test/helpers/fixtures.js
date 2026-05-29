@@ -2,7 +2,7 @@
  * Shared test fixtures — scope setup, render helper, etc.
  * Imported by all test files so we only set up the Strudel scope once.
  */
-import { setupScope, evaluatePattern, renderToBuffer } from '../../src/renderer.js';
+import { evaluatePattern, renderToBuffer, setupScope } from '../../src/renderer.js';
 
 let scopeReady = false;
 

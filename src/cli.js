@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-import { readFile, stat } from 'fs/promises';
-import { resolve, extname } from 'path';
-import { existsSync } from 'fs';
+import { existsSync } from 'node:fs';
+import { readFile, stat } from 'node:fs/promises';
+import { extname, resolve } from 'node:path';
 import { Command } from 'commander';
-import { setupScope, evaluatePattern, renderToBuffer, getPatternCps } from './renderer.js';
-import { writeAudio, inferFormat } from './export.js';
+import { inferFormat, writeAudio } from './export.js';
+import { evaluatePattern, getPatternCps, renderToBuffer, setupScope } from './renderer.js';
 
 const program = new Command();
 
@@ -17,15 +17,18 @@ program
   .option('-r, --samplerate <hz>', 'sample rate in Hz', (v) => parseInt(v, 10), 44100)
   .option('--cps <value>', 'cycles per second (tempo)', parseFloat, 1)
   .option('--format <fmt>', 'override output format (wav, mp3, flac, ogg)')
-  .option('--quality <n>', 'encoding quality (MP3: 0-9 VBR, lower=better; OGG: 1-10; FLAC: compression 0-8)', (v) => parseInt(v, 10))
-  .option('-q', 'quiet mode — only errors', false)
+  .option(
+    '--quality <n>',
+    'encoding quality (MP3: 0-9 VBR, lower=better; OGG: 1-10; FLAC: compression 0-8)',
+    (v) => parseInt(v, 10),
+  )
+  .option('-q, --quiet', 'quiet mode — only errors', false)
   .option('-p, --progress', 'show per-chunk progress', false);
 
 program.parse();
 
 const opts = program.opts();
-const quiet = opts.Q || false;
-const log = quiet ? () => {} : (...args) => console.log(...[...args].map(a => typeof a === 'string' && a.startsWith('rendel:') ? a : a));
+const quiet = opts.quiet;
 
 // --- Input validation ---
 
@@ -50,7 +53,7 @@ if (requestedFormat) {
   }
   // Replace extension
   const ext = extname(outputPath);
-  outputPath = outputPath.slice(0, outputPath.length - ext.length) + '.' + requestedFormat;
+  outputPath = `${outputPath.slice(0, outputPath.length - ext.length)}.${requestedFormat}`;
 }
 
 const actualFormat = inferFormat(outputPath);
@@ -60,18 +63,20 @@ if (!actualFormat) {
 }
 
 const { duration, samplerate: sampleRate } = opts;
-const cpsExplicit = process.argv.some(a => a === '--cps');
+const cpsExplicit = process.argv.some((a) => a === '--cps');
 let cps = opts.cps;
 
-if (isNaN(duration) || duration <= 0) {
+if (Number.isNaN(duration) || duration <= 0) {
   console.error(`Error: --duration must be a positive number, got: ${opts.duration}`);
   process.exit(1);
 }
-if (isNaN(sampleRate) || ![22050, 44100, 48000, 88200, 96000].includes(sampleRate)) {
-  console.error(`Error: --samplerate must be one of 22050, 44100, 48000, 88200, 96000, got: ${opts.samplerate}`);
+if (Number.isNaN(sampleRate) || ![22050, 44100, 48000, 88200, 96000].includes(sampleRate)) {
+  console.error(
+    `Error: --samplerate must be one of 22050, 44100, 48000, 88200, 96000, got: ${opts.samplerate}`,
+  );
   process.exit(1);
 }
-if (isNaN(cps) || cps <= 0) {
+if (Number.isNaN(cps) || cps <= 0) {
   console.error(`Error: --cps must be a positive number, got: ${opts.cps}`);
   process.exit(1);
 }
@@ -104,7 +109,6 @@ try {
     cps,
     sampleRate,
     verbose: opts.progress,
-    onChunk: opts.progress ? undefined : undefined,
   });
 
   if (!quiet) console.log(`rendel: writing ${outputPath} (${actualFormat.toUpperCase()})`);
@@ -112,12 +116,15 @@ try {
 
   const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
   const fileSize = (await stat(outputPath)).size;
-  const sizeStr = fileSize > 1024 * 1024
-    ? `${(fileSize / 1024 / 1024).toFixed(1)} MB`
-    : `${(fileSize / 1024).toFixed(0)} KB`;
+  const sizeStr =
+    fileSize > 1024 * 1024
+      ? `${(fileSize / 1024 / 1024).toFixed(1)} MB`
+      : `${(fileSize / 1024).toFixed(0)} KB`;
 
   if (!quiet) {
-    console.log(`rendel: done in ${elapsed}s — ${outputPath} (${sizeStr}, ${duration}s, ${actualFormat.toUpperCase()})`);
+    console.log(
+      `rendel: done in ${elapsed}s — ${outputPath} (${sizeStr}, ${duration}s, ${actualFormat.toUpperCase()})`,
+    );
   }
 } catch (err) {
   console.error(`Error: ${err.message}`);
