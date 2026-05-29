@@ -5,6 +5,7 @@ import { ApiError } from './errors.js';
 import { getExample, searchExamples } from './examples.js';
 import { FORMATS, MIME, renderToFile } from './render.js';
 import { shareUrl } from './share.js';
+import { getSounds } from './sounds.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -22,11 +23,20 @@ app.get('/', (_req, res) =>
         'render pattern code to audio (?format=wav|mp3|flac|ogg, ?duration, ?samplerate, ?quality)',
       'GET /examples': 'list / fuzzy-search real Strudel example tunes (?q, ?page, ?limit)',
       'GET /examples/:id': 'full code + metadata for one example',
+      'GET /sounds': 'catalog of playable sounds — samples, soundfonts, synths',
       'POST /share': 'build a strudel.cc share URL for pattern code',
     },
     formats: FORMATS,
   }),
 );
+
+app.get('/sounds', async (_req, res, next) => {
+  try {
+    res.json(await getSounds());
+  } catch (err) {
+    next(err);
+  }
+});
 
 app.post('/render', async (req, res, next) => {
   const controller = new AbortController();
