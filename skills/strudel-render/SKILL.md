@@ -83,19 +83,14 @@ curl -sX POST "$RENDEL_API_BASE/share" -H 'content-type: text/plain' \
 
 ## Writing Strudel code that renders cleanly
 
-- **Use double quotes for mini-notation.** `s("bd*4")` is parsed as a pattern;
-  `s('bd*4')` is treated as a literal sound name and will not work.
-- **Layer with `stack(...)` or commas**, e.g. `stack(s("bd*4"), s("hh*8"))`.
-- **Structure longer pieces with `arrange([cycles, pattern], ...)`** — each section
-  plays for the given number of cycles, in order.
-- **Sounds:** drum samples (`bd sd hh cp ...`), GM soundfonts (`piano`, `rhodes`,
-  `strings`, `sax`, ...), and synths (`sine`, `sawtooth`, `square`, `triangle`,
-  `supersaw`). `note(...)` / `n(...).scale(...)` for pitch; `chord("<Cm7 ...>/4").voicing()` for harmony.
-- **Effects:** `gain pan lpf hpf room delay crush shape distort` etc.
-- **Endings:** patterns loop; for a clean ending strike a final chord with a long
-  envelope/reverb and let it decay — or just request a fixed `duration`.
-- **Avoid `arp()`** in headless rendering (unstable); write arpeggios out as note
-  sequences instead. `chorus()` is a no-op.
+The full composition guide — structure with `arrange`, decaying-coda endings,
+`setcps`/length, sound selection, the `arp()`/`chorus()`/`.add(note())` gotchas —
+is **`api/mcp/guide.md`**, the single source of truth. It's served to agents over
+MCP as the `compose_strudel` prompt and the `strudel://guide` resource, so an MCP
+client gets it automatically; a REST consumer can read that file directly.
+
+The one rule you cannot skip: **mini-notation uses double quotes** — `s("bd*4")`
+is a pattern, `s('bd*4')` is a literal sound name and won't work.
 
 ## Notes
 
