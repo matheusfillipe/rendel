@@ -34,13 +34,45 @@ function getClient() {
   return client;
 }
 
-// Random key so concurrent renders never collide; the bucket's public-read
-// policy lets the returned URL resolve without credentials.
-export async function uploadRender(filePath, format) {
-  const body = await readFile(filePath);
-  const key = `renders/${randomUUID()}.${format}`;
-  await getClient().putObject(BUCKET, key, body, body.length, {
+function redirectHtml(target) {
+  return (
+    '<!doctype html><html><head>' +
+    `<meta http-equiv="refresh" content="0; url=${target}">` +
+    '<title>Open in Strudel</title></head>' +
+    `<body><a href="${target}">Open in Strudel →</a></body></html>`
+  );
+}
+
+// Upload the render plus sidecar artifacts under one random basename so they're
+// trivially matched: <id>.<fmt> (audio), <id>.json (provenance — where the song
+// came from), and, when there's a share link, <id>.html (a redirect to the
+// strudel.cc editor, served from the bucket so callers needn't paste elsewhere).
+// The bucket's public-read policy makes every returned URL resolve without
+// credentials.
+export async function uploadArtifacts(filePath, format, meta = {}) {
+  const audio = await readFile(filePath);
+  const base = `renders/${randomUUID()}`;
+  const client = getClient();
+
+  await client.putObject(BUCKET, `${base}.${format}`, audio, audio.length, {
     'Content-Type': MIME[format] || 'application/octet-stream',
   });
-  return { url: `${PUBLIC_BASE}/${key}`, bytes: body.length };
+  const sidecar = Buffer.from(JSON.stringify(meta, null, 2), 'utf8');
+  await client.putObject(BUCKET, `${base}.json`, sidecar, sidecar.length, {
+    'Content-Type': 'application/json',
+  });
+
+  const result = {
+    url: `${PUBLIC_BASE}/${base}.${format}`,
+    json_url: `${PUBLIC_BASE}/${base}.json`,
+    bytes: audio.length,
+  };
+  if (meta.share_url) {
+    const html = Buffer.from(redirectHtml(meta.share_url), 'utf8');
+    await client.putObject(BUCKET, `${base}.html`, html, html.length, {
+      'Content-Type': 'text/html; charset=utf-8',
+    });
+    result.edit_url = `${PUBLIC_BASE}/${base}.html`;
+  }
+  return result;
 }

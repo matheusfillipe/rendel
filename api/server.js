@@ -57,9 +57,15 @@ app.post('/render', async (req, res, next) => {
 
     // agent/MCP callers want a link, not binary bytes
     if (isTruthy(opts.upload)) {
-      const { url, format, bytes } = await renderToUrl(code, opts, controller.signal);
+      const r = await renderToUrl(code, opts, controller.signal);
       if (controller.signal.aborted) return;
-      res.json({ url, format, bytes });
+      res.json({
+        url: r.url,
+        edit_url: r.edit_url,
+        json_url: r.json_url,
+        format: r.format,
+        bytes: r.bytes,
+      });
       return;
     }
 

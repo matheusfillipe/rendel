@@ -60,14 +60,9 @@ export function createMcpServer() {
       try {
         const r = await renderToUrl(code, { format, duration, exact });
         const secs = r.duration ? ` (~${r.duration}s)` : '';
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Rendered ${r.format}${secs}, ${r.bytes} bytes.\naudio_url: ${r.url}`,
-            },
-          ],
-        };
+        const lines = [`Rendered ${r.format}${secs}, ${r.bytes} bytes.`, `audio_url: ${r.url}`];
+        if (r.edit_url) lines.push(`edit_url: ${r.edit_url}`);
+        return { content: [{ type: 'text', text: lines.join('\n') }] };
       } catch (err) {
         return {
           content: [{ type: 'text', text: `render failed: ${err.message}` }],
