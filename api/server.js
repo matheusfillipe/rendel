@@ -59,13 +59,7 @@ app.post('/render', async (req, res, next) => {
     if (isTruthy(opts.upload)) {
       const r = await renderToUrl(code, opts, controller.signal);
       if (controller.signal.aborted) return;
-      res.json({
-        url: r.url,
-        edit_url: r.edit_url,
-        json_url: r.json_url,
-        format: r.format,
-        bytes: r.bytes,
-      });
+      res.json({ url: r.url, json_url: r.json_url, format: r.format, bytes: r.bytes });
       return;
     }
 

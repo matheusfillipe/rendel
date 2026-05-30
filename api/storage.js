@@ -34,21 +34,10 @@ function getClient() {
   return client;
 }
 
-function redirectHtml(target) {
-  return (
-    '<!doctype html><html><head>' +
-    `<meta http-equiv="refresh" content="0; url=${target}">` +
-    '<title>Open in Strudel</title></head>' +
-    `<body><a href="${target}">Open in Strudel →</a></body></html>`
-  );
-}
-
-// Upload the render plus sidecar artifacts under one random basename so they're
-// trivially matched: <id>.<fmt> (audio), <id>.json (provenance — where the song
-// came from), and, when there's a share link, <id>.html (a redirect to the
-// strudel.cc editor, served from the bucket so callers needn't paste elsewhere).
-// The bucket's public-read policy makes every returned URL resolve without
-// credentials.
+// Upload the render plus a provenance sidecar under one random basename so
+// they're trivially matched: <id>.<fmt> (audio) and <id>.json (where the song
+// came from — the code, the share link, etc.). The bucket's public-read policy
+// makes every returned URL resolve without credentials.
 export async function uploadArtifacts(filePath, format, meta = {}) {
   const audio = await readFile(filePath);
   const base = `renders/${randomUUID()}`;
@@ -62,17 +51,9 @@ export async function uploadArtifacts(filePath, format, meta = {}) {
     'Content-Type': 'application/json',
   });
 
-  const result = {
+  return {
     url: `${PUBLIC_BASE}/${base}.${format}`,
     json_url: `${PUBLIC_BASE}/${base}.json`,
     bytes: audio.length,
   };
-  if (meta.share_url) {
-    const html = Buffer.from(redirectHtml(meta.share_url), 'utf8');
-    await client.putObject(BUCKET, `${base}.html`, html, html.length, {
-      'Content-Type': 'text/html; charset=utf-8',
-    });
-    result.edit_url = `${PUBLIC_BASE}/${base}.html`;
-  }
-  return result;
 }
